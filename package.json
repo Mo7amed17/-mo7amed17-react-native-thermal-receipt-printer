@@ -1,7 +1,7 @@
 {
   "name": "@mo7amed17/react-native-thermal-receipt-printer",
-  "version": "1.0.4",
-  "description": "Fork of react-native-printer. A React Native Library to support USB/BLE/Net printer",
+  "version": "1.0.5",
+  "description": "A React Native Library to support USB/BLE/Net printer with Android 14+ compatibility fixes",
   "main": "dist/index.js",
   "source": "dist/index.js",
   "scripts": {
