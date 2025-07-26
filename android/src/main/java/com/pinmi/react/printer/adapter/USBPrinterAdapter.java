@@ -301,54 +301,68 @@ public class USBPrinterAdapter implements PrinterAdapter {
 
     private boolean openConnection() {
         try {
+            Log.d(LOG_TAG, "=== OPEN CONNECTION DEBUG START ===");
+            
             if (mUsbDevice == null) {
-                Log.e(LOG_TAG, "USB Device is not initialized");
+                Log.e(LOG_TAG, "ERROR: USB Device is not initialized");
                 return false;
             }
             if (mUSBManager == null) {
-                Log.e(LOG_TAG, "USB Manager is not initialized");
+                Log.e(LOG_TAG, "ERROR: USB Manager is not initialized");
                 return false;
             }
 
             if (mUsbDeviceConnection != null) {
-                Log.i(LOG_TAG, "USB Connection already connected");
+                Log.d(LOG_TAG, "INFO: USB Connection already connected");
                 return true;
             }
 
             if (!mUSBManager.hasPermission(mUsbDevice)) {
-                Log.e(LOG_TAG, "No permission for USB device");
+                Log.e(LOG_TAG, "ERROR: No permission for USB device");
                 return false;
             }
 
+            Log.d(LOG_TAG, "Getting USB interface...");
             UsbInterface usbInterface = mUsbDevice.getInterface(0);
+            Log.d(LOG_TAG, "Interface endpoint count: " + usbInterface.getEndpointCount());
+            
             for (int i = 0; i < usbInterface.getEndpointCount(); i++) {
                 final UsbEndpoint ep = usbInterface.getEndpoint(i);
+                Log.d(LOG_TAG, "Endpoint " + i + ": Type=" + ep.getType() + ", Direction=" + ep.getDirection());
+                
                 if (ep.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK) {
                     if (ep.getDirection() == UsbConstants.USB_DIR_OUT) {
+                        Log.d(LOG_TAG, "Found suitable OUT endpoint: " + i);
+                        
                         UsbDeviceConnection usbDeviceConnection = mUSBManager.openDevice(mUsbDevice);
                         if (usbDeviceConnection == null) {
-                            Log.e(LOG_TAG, "failed to open USB Connection");
+                            Log.e(LOG_TAG, "ERROR: failed to open USB Connection");
                             return false;
                         }
+                        
+                        Log.d(LOG_TAG, "USB device opened, claiming interface...");
                         if (usbDeviceConnection.claimInterface(usbInterface, true)) {
-
+                            Log.d(LOG_TAG, "Interface claimed successfully");
                             mEndPoint = ep;
                             mUsbInterface = usbInterface;
                             mUsbDeviceConnection = usbDeviceConnection;
-                            Log.i(LOG_TAG, "Device connected successfully");
+                            Log.d(LOG_TAG, "Device connected successfully");
+                            Log.d(LOG_TAG, "=== OPEN CONNECTION DEBUG END ===");
                             return true;
                         } else {
+                            Log.e(LOG_TAG, "ERROR: failed to claim usb connection");
                             usbDeviceConnection.close();
-                            Log.e(LOG_TAG, "failed to claim usb connection");
                             return false;
                         }
                     }
                 }
             }
-            Log.e(LOG_TAG, "No suitable endpoint found");
+            Log.e(LOG_TAG, "ERROR: No suitable endpoint found");
+            Log.d(LOG_TAG, "=== OPEN CONNECTION DEBUG END ===");
             return false;
         } catch (Exception e) {
-            Log.e(LOG_TAG, "Error opening connection: " + e.getMessage());
+            Log.e(LOG_TAG, "ERROR opening connection: " + e.getMessage(), e);
+            Log.d(LOG_TAG, "=== OPEN CONNECTION DEBUG END ===");
             return false;
         }
     }
@@ -356,17 +370,36 @@ public class USBPrinterAdapter implements PrinterAdapter {
     public void printRawData(String rawBase64Data, Callback errorCallback, Callback successCallback){
         try {
             final String rawData = rawBase64Data;
-            Log.v(LOG_TAG, "start to print raw data " + rawBase64Data);
+            Log.d(LOG_TAG, "=== PRINT DEBUG START ===");
+            Log.d(LOG_TAG, "Raw data length: " + (rawBase64Data != null ? rawBase64Data.length() : 0));
+            Log.d(LOG_TAG, "Raw data preview: " + (rawBase64Data != null ? rawBase64Data.substring(0, Math.min(50, rawBase64Data.length())) : "null"));
+            
+            if (rawBase64Data == null || rawBase64Data.isEmpty()) {
+                Log.e(LOG_TAG, "ERROR: Raw data is null or empty");
+                errorCallback.invoke("Raw data is null or empty");
+                return;
+            }
+            
+            Log.d(LOG_TAG, "Checking connection...");
             boolean isConnected = openConnection();
+            Log.d(LOG_TAG, "Connection result: " + isConnected);
+            
             if (isConnected) {
-                Log.v(LOG_TAG, "Connected to device");
+                Log.d(LOG_TAG, "USB Connection object: " + (mUsbDeviceConnection != null ? "VALID" : "NULL"));
+                Log.d(LOG_TAG, "USB Endpoint object: " + (mEndPoint != null ? "VALID" : "NULL"));
+                Log.d(LOG_TAG, "USB Device: " + (mUsbDevice != null ? "Vendor: " + mUsbDevice.getVendorId() + ", Product: " + mUsbDevice.getProductId() : "NULL"));
+                
+                Log.d(LOG_TAG, "Starting print thread...");
                 new Thread(new USBThreadWrite(mUsbDeviceConnection, mEndPoint, rawData, successCallback, errorCallback)).start();
+                Log.d(LOG_TAG, "Print thread started successfully");
             } else {
                 String msg = "failed to connect to device";
-                Log.v(LOG_TAG, msg);
+                Log.e(LOG_TAG, "ERROR: " + msg);
                 errorCallback.invoke(msg);
             }
+            Log.d(LOG_TAG, "=== PRINT DEBUG END ===");
         } catch (Exception e) {
+            Log.e(LOG_TAG, "ERROR in printRawData: " + e.getMessage(), e);
             errorCallback.invoke("Error printing raw data: " + e.getMessage());
         }
     }
