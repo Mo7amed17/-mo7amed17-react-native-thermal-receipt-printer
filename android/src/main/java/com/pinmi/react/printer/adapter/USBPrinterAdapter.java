@@ -52,6 +52,10 @@ public class USBPrinterAdapter implements PrinterAdapter {
     private UsbEndpoint mEndPoint;
     private static final String ACTION_USB_PERMISSION = "com.pinmi.react.USBPrinter.USB_PERMISSION";
     private static final String EVENT_USB_DEVICE_ATTACHED = "usbAttached";
+    
+    // Add callback references for permission handling
+    private Callback mPendingSuccessCallback;
+    private Callback mPendingErrorCallback;
 
     private final static char ESC_CHAR = 0x1B;
     private static byte[] SELECT_BIT_IMAGE_MODE = { 0x1B, 0x2A, 33 };
@@ -86,11 +90,31 @@ public class USBPrinterAdapter implements PrinterAdapter {
                         if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                             Log.i(LOG_TAG, "success to grant permission for device " + usbDevice.getDeviceId() + ", vendor_id: " + usbDevice.getVendorId() + " product_id: " + usbDevice.getProductId());
                             mUsbDevice = usbDevice;
-                                            } else {
-                        if (usbDevice != null) {
-                            Toast.makeText(context, "User refuses to obtain USB device permissions" + usbDevice.getDeviceName(), Toast.LENGTH_LONG).show();
+                            
+                            // Try to establish connection after permission is granted
+                            if (openConnection()) {
+                                if (mPendingSuccessCallback != null) {
+                                    mPendingSuccessCallback.invoke(new USBPrinterDevice(mUsbDevice).toRNWritableMap());
+                                    mPendingSuccessCallback = null;
+                                    mPendingErrorCallback = null;
+                                }
+                            } else {
+                                if (mPendingErrorCallback != null) {
+                                    mPendingErrorCallback.invoke("Failed to establish connection after permission granted");
+                                    mPendingSuccessCallback = null;
+                                    mPendingErrorCallback = null;
+                                }
+                            }
+                        } else {
+                            if (usbDevice != null) {
+                                Toast.makeText(context, "User refuses to obtain USB device permissions" + usbDevice.getDeviceName(), Toast.LENGTH_LONG).show();
+                            }
+                            if (mPendingErrorCallback != null) {
+                                mPendingErrorCallback.invoke("USB permission denied");
+                                mPendingSuccessCallback = null;
+                                mPendingErrorCallback = null;
+                            }
                         }
-                    }
                     }
                 } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
                     if (mUsbDevice != null) {
@@ -107,6 +131,11 @@ public class USBPrinterAdapter implements PrinterAdapter {
                 }
             } catch (Exception e) {
                 Log.e(LOG_TAG, "Error in BroadcastReceiver: " + e.getMessage());
+                if (mPendingErrorCallback != null) {
+                    mPendingErrorCallback.invoke("Error in USB permission handling: " + e.getMessage());
+                    mPendingSuccessCallback = null;
+                    mPendingErrorCallback = null;
+                }
             }
         }
     };
@@ -152,11 +181,18 @@ public class USBPrinterAdapter implements PrinterAdapter {
 
     public void closeConnectionIfExists() {
         if (mUsbDeviceConnection != null) {
-            mUsbDeviceConnection.releaseInterface(mUsbInterface);
-            mUsbDeviceConnection.close();
-            mUsbInterface = null;
-            mEndPoint = null;
-            mUsbDeviceConnection = null;
+            try {
+                if (mUsbInterface != null) {
+                    mUsbDeviceConnection.releaseInterface(mUsbInterface);
+                }
+                mUsbDeviceConnection.close();
+            } catch (Exception e) {
+                Log.e(LOG_TAG, "Error closing connection: " + e.getMessage());
+            } finally {
+                mUsbInterface = null;
+                mEndPoint = null;
+                mUsbDeviceConnection = null;
+            }
         }
     }
 
@@ -169,6 +205,9 @@ public class USBPrinterAdapter implements PrinterAdapter {
             Log.e(LOG_TAG, "Error unregistering receiver: " + e.getMessage());
         }
         closeConnectionIfExists();
+        // Clear pending callbacks
+        mPendingSuccessCallback = null;
+        mPendingErrorCallback = null;
     }
 
     public List<PrinterDevice> getDeviceList(Callback errorCallback) {
@@ -198,27 +237,59 @@ public class USBPrinterAdapter implements PrinterAdapter {
             }
 
             USBPrinterDeviceId usbPrinterDeviceId = (USBPrinterDeviceId) printerDeviceId;
+            
+            // Check if we already have the same device selected and connected
             if (mUsbDevice != null && mUsbDevice.getVendorId() == usbPrinterDeviceId.getVendorId() && mUsbDevice.getProductId() == usbPrinterDeviceId.getProductId()) {
-                Log.i(LOG_TAG, "already selected device, do not need repeat to connect");
-                if(!mUSBManager.hasPermission(mUsbDevice)){
+                Log.i(LOG_TAG, "already selected device, checking connection");
+                if (mUSBManager.hasPermission(mUsbDevice)) {
+                    if (mUsbDeviceConnection != null) {
+                        Log.i(LOG_TAG, "Device already connected");
+                        successCallback.invoke(new USBPrinterDevice(mUsbDevice).toRNWritableMap());
+                        return;
+                    } else {
+                        // We have permission but no connection, try to connect
+                        if (openConnection()) {
+                            successCallback.invoke(new USBPrinterDevice(mUsbDevice).toRNWritableMap());
+                            return;
+                        }
+                    }
+                } else {
                     closeConnectionIfExists();
                     mUSBManager.requestPermission(mUsbDevice, mPermissionIndent);
+                    // Store callbacks for async permission handling
+                    mPendingSuccessCallback = successCallback;
+                    mPendingErrorCallback = errorCallback;
+                    return;
                 }
-                successCallback.invoke(new USBPrinterDevice(mUsbDevice).toRNWritableMap());
-                return;
             }
+            
             closeConnectionIfExists();
             if (mUSBManager.getDeviceList().size() == 0) {
                 errorCallback.invoke("Device list is empty, can not choose device");
                 return;
             }
+            
             for (UsbDevice usbDevice : mUSBManager.getDeviceList().values()) {
                 if (usbDevice.getVendorId() == usbPrinterDeviceId.getVendorId() && usbDevice.getProductId() == usbPrinterDeviceId.getProductId()) {
                     Log.v(LOG_TAG, "request for device: vendor_id: " + usbPrinterDeviceId.getVendorId() + ", product_id: " + usbPrinterDeviceId.getProductId());
-                    closeConnectionIfExists();
-                    mUSBManager.requestPermission(usbDevice, mPermissionIndent);
-                    successCallback.invoke(new USBPrinterDevice(usbDevice).toRNWritableMap());
-                    return;
+                    
+                    if (mUSBManager.hasPermission(usbDevice)) {
+                        mUsbDevice = usbDevice;
+                        if (openConnection()) {
+                            successCallback.invoke(new USBPrinterDevice(mUsbDevice).toRNWritableMap());
+                            return;
+                        } else {
+                            errorCallback.invoke("Failed to establish connection to device");
+                            return;
+                        }
+                    } else {
+                        mUsbDevice = usbDevice;
+                        mUSBManager.requestPermission(usbDevice, mPermissionIndent);
+                        // Store callbacks for async permission handling
+                        mPendingSuccessCallback = successCallback;
+                        mPendingErrorCallback = errorCallback;
+                        return;
+                    }
                 }
             }
 
@@ -244,6 +315,11 @@ public class USBPrinterAdapter implements PrinterAdapter {
                 return true;
             }
 
+            if (!mUSBManager.hasPermission(mUsbDevice)) {
+                Log.e(LOG_TAG, "No permission for USB device");
+                return false;
+            }
+
             UsbInterface usbInterface = mUsbDevice.getInterface(0);
             for (int i = 0; i < usbInterface.getEndpointCount(); i++) {
                 final UsbEndpoint ep = usbInterface.getEndpoint(i);
@@ -259,7 +335,7 @@ public class USBPrinterAdapter implements PrinterAdapter {
                             mEndPoint = ep;
                             mUsbInterface = usbInterface;
                             mUsbDeviceConnection = usbDeviceConnection;
-                            Log.i(LOG_TAG, "Device connected");
+                            Log.i(LOG_TAG, "Device connected successfully");
                             return true;
                         } else {
                             usbDeviceConnection.close();
@@ -269,7 +345,8 @@ public class USBPrinterAdapter implements PrinterAdapter {
                     }
                 }
             }
-            return true;
+            Log.e(LOG_TAG, "No suitable endpoint found");
+            return false;
         } catch (Exception e) {
             Log.e(LOG_TAG, "Error opening connection: " + e.getMessage());
             return false;
@@ -285,7 +362,7 @@ public class USBPrinterAdapter implements PrinterAdapter {
                 Log.v(LOG_TAG, "Connected to device");
                 new Thread(new USBThreadWrite(mUsbDeviceConnection, mEndPoint, rawData, successCallback, errorCallback)).start();
             } else {
-                String msg = "failed to connected to device";
+                String msg = "failed to connect to device";
                 Log.v(LOG_TAG, msg);
                 errorCallback.invoke(msg);
             }
@@ -358,7 +435,7 @@ public class USBPrinterAdapter implements PrinterAdapter {
                 mUsbDeviceConnection.bulkTransfer(mEndPoint, SET_LINE_SPACE_32, SET_LINE_SPACE_32.length, 100000);
                 mUsbDeviceConnection.bulkTransfer(mEndPoint, LINE_FEED, LINE_FEED.length, 100000);
             } else {
-                String msg = "failed to connected to device";
+                String msg = "failed to connect to device";
                 Log.v(LOG_TAG, msg);
                 errorCallback.invoke(msg);
             }
