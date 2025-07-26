@@ -31,57 +31,98 @@ public class RNUSBPrinterModule extends ReactContextBaseJavaModule implements RN
     @ReactMethod
     @Override
     public void init(Callback successCallback, Callback errorCallback) {
-        this.adapter = USBPrinterAdapter.getInstance();
-        this.adapter.init(reactContext,  successCallback, errorCallback);
+        try {
+            this.adapter = USBPrinterAdapter.getInstance();
+            this.adapter.init(reactContext, successCallback, errorCallback);
+        } catch (Exception e) {
+            errorCallback.invoke("Failed to initialize USB printer module: " + e.getMessage());
+        }
     }
 
     @ReactMethod
     @Override
     public void closeConn()  {
-        adapter.closeConnectionIfExists();
+        try {
+            if (adapter instanceof USBPrinterAdapter) {
+                ((USBPrinterAdapter) adapter).cleanup();
+            } else {
+                adapter.closeConnectionIfExists();
+            }
+        } catch (Exception e) {
+            // Log error but don't throw since this is cleanup
+            System.err.println("Error closing connection: " + e.getMessage());
+        }
     }
 
     @ReactMethod
     @Override
     public void getDeviceList(Callback successCallback, Callback errorCallback)  {
-        List<PrinterDevice> printerDevices = adapter.getDeviceList(errorCallback);
-        WritableArray pairedDeviceList = Arguments.createArray();
-        if(printerDevices.size() > 0) {
-            for (PrinterDevice printerDevice : printerDevices) {
-                pairedDeviceList.pushMap(printerDevice.toRNWritableMap());
+        try {
+            List<PrinterDevice> printerDevices = adapter.getDeviceList(errorCallback);
+            WritableArray pairedDeviceList = Arguments.createArray();
+            if(printerDevices.size() > 0) {
+                for (PrinterDevice printerDevice : printerDevices) {
+                    pairedDeviceList.pushMap(printerDevice.toRNWritableMap());
+                }
+                successCallback.invoke(pairedDeviceList);
+            }else{
+                errorCallback.invoke("No Device Found");
             }
-            successCallback.invoke(pairedDeviceList);
-        }else{
-            errorCallback.invoke("No Device Found");
+        } catch (Exception e) {
+            errorCallback.invoke("Error getting device list: " + e.getMessage());
         }
     }
 
     @ReactMethod
     @Override
     public void printRawData(String base64Data, Callback errorCallback, Callback successCallback){
-        adapter.printRawData(base64Data, errorCallback, successCallback);
+        try {
+            adapter.printRawData(base64Data, errorCallback, successCallback);
+        } catch (Exception e) {
+            errorCallback.invoke("Error printing raw data: " + e.getMessage());
+        }
     }
 
     @ReactMethod
     @Override
     public void printImageData(String imageUrl, Callback errorCallback) {
-        adapter.printImageData(imageUrl, errorCallback);
+        try {
+            adapter.printImageData(imageUrl, errorCallback);
+        } catch (Exception e) {
+            errorCallback.invoke("Error printing image data: " + e.getMessage());
+        }
     }
 
     @ReactMethod
     @Override
     public void printQrCode(String qrCode, Callback errorCallback) {
-        adapter.printQrCode(qrCode, errorCallback);
+        try {
+            adapter.printQrCode(qrCode, errorCallback);
+        } catch (Exception e) {
+            errorCallback.invoke("Error printing QR code: " + e.getMessage());
+        }
     }
 
 
     @ReactMethod
     public void connectPrinter(Integer vendorId, Integer productId, Callback successCallback, Callback errorCallback) {
-        adapter.selectDevice(USBPrinterDeviceId.valueOf(vendorId, productId), successCallback, errorCallback);
+        try {
+            adapter.selectDevice(USBPrinterDeviceId.valueOf(vendorId, productId), successCallback, errorCallback);
+        } catch (Exception e) {
+            errorCallback.invoke("Error connecting printer: " + e.getMessage());
+        }
     }
 
     @Override
     public String getName() {
         return "RNUSBPrinter";
+    }
+
+    @Override
+    public void onCatalystInstanceDestroy() {
+        super.onCatalystInstanceDestroy();
+        if (adapter instanceof USBPrinterAdapter) {
+            ((USBPrinterAdapter) adapter).cleanup();
+        }
     }
 }
