@@ -29,4 +29,6 @@ public interface PrinterAdapter {
     public void printImageData(String imageUrl, Callback errorCallback);
 
     public void printQrCode(String qrCode, Callback errorCallback);
+
+    public void printImageBase64(String base64Image, int imageWidth, int imageHeight, Callback errorCallback, Callback successCallback);
 }

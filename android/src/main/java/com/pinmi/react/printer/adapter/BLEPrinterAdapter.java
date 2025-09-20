@@ -180,4 +180,25 @@ public class BLEPrinterAdapter implements PrinterAdapter{
     public void printQrCode(String qrCode, Callback errorCallback) {
 
     }
+
+    @Override
+    public void printImageBase64(String base64Image, int imageWidth, int imageHeight, Callback errorCallback, Callback successCallback) {
+        if(this.mBluetoothSocket == null){
+            errorCallback.invoke("bluetooth connection is not built, may be you forgot to connectPrinter");
+            return;
+        }
+        try {
+            byte[] decoded = Base64.decode(base64Image, Base64.DEFAULT);
+            OutputStream printerOutputStream = this.mBluetoothSocket.getOutputStream();
+            // For many ESC/POS printers, sending the raster data prepared on JS side works.
+            // Here we simply write decoded bytes as-is similar to printRawData.
+            printerOutputStream.write(decoded, 0, decoded.length);
+            printerOutputStream.flush();
+            successCallback.invoke();
+        } catch (IOException e) {
+            Log.e(LOG_TAG, "failed to print base64 image data");
+            e.printStackTrace();
+            errorCallback.invoke(e.getMessage());
+        }
+    }
 }

@@ -78,6 +78,13 @@ public class RNBLEPrinterModule extends ReactContextBaseJavaModule implements RN
 
     }
 
+    @ReactMethod
+    public void printImageBase64(String base64Image, Integer imageWidth, Integer imageHeight, Callback errorCallback, Callback successCallback) {
+        int w = imageWidth == null ? 0 : imageWidth.intValue();
+        int h = imageHeight == null ? 0 : imageHeight.intValue();
+        adapter.printImageBase64(base64Image, w, h, errorCallback, successCallback);
+    }
+
 
     @ReactMethod
     public void connectPrinter(String innerAddress, Callback successCallback, Callback errorCallback) {
