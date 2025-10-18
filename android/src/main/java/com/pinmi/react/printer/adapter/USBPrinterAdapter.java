@@ -487,6 +487,43 @@ public class USBPrinterAdapter implements PrinterAdapter {
         }
     }
 
+    @Override
+    public void printImageBase64(String base64Image, int imageWidth, int imageHeight, Callback errorCallback, Callback successCallback) {
+        try {
+            Log.d(LOG_TAG, "=== PRINT IMAGE BASE64 DEBUG START ===");
+            Log.d(LOG_TAG, "Base64 image length: " + (base64Image != null ? base64Image.length() : 0));
+            Log.d(LOG_TAG, "Image dimensions: " + imageWidth + "x" + imageHeight);
+            
+            if (base64Image == null || base64Image.isEmpty()) {
+                Log.e(LOG_TAG, "ERROR: Base64 image data is null or empty");
+                errorCallback.invoke("Base64 image data is null or empty");
+                return;
+            }
+            
+            Log.d(LOG_TAG, "Checking connection...");
+            boolean isConnected = openConnection();
+            Log.d(LOG_TAG, "Connection result: " + isConnected);
+            
+            if (isConnected) {
+                Log.d(LOG_TAG, "USB Connection object: " + (mUsbDeviceConnection != null ? "VALID" : "NULL"));
+                Log.d(LOG_TAG, "USB Endpoint object: " + (mEndPoint != null ? "VALID" : "NULL"));
+                Log.d(LOG_TAG, "USB Device: " + (mUsbDevice != null ? "Vendor: " + mUsbDevice.getVendorId() + ", Product: " + mUsbDevice.getProductId() : "NULL"));
+                
+                Log.d(LOG_TAG, "Starting print image thread...");
+                new Thread(new USBThreadWrite(mUsbDeviceConnection, mEndPoint, base64Image, successCallback, errorCallback)).start();
+                Log.d(LOG_TAG, "Print image thread started successfully");
+            } else {
+                String msg = "failed to connect to device";
+                Log.e(LOG_TAG, "ERROR: " + msg);
+                errorCallback.invoke(msg);
+            }
+            Log.d(LOG_TAG, "=== PRINT IMAGE BASE64 DEBUG END ===");
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "ERROR in printImageBase64: " + e.getMessage(), e);
+            errorCallback.invoke("Error printing base64 image: " + e.getMessage());
+        }
+    }
+
     public static int[][] getPixelsSlow(Bitmap image2) {
         try {
             Bitmap image = resizeTheImageForPrinting(image2);

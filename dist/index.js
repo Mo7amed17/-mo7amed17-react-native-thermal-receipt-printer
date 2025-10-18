@@ -107,6 +107,20 @@ export var USBPrinter = {
             RNUSBPrinter.printRawData(buffer.toString("base64"), reject, resolve);
         });
     },
+    printImage: function (imgUrl, opts) {
+        if (opts === void 0) { opts = {}; }
+        return new Promise(function (resolve, reject) {
+            RNUSBPrinter.printImageData(imgUrl, reject);
+        });
+    },
+    printImageBase64: function (Base64, opts) {
+        if (opts === void 0) { opts = {}; }
+        return new Promise(function (resolve, reject) {
+            var imageWidth = opts.imageWidth || 0;
+            var imageHeight = opts.imageHeight || 0;
+            RNUSBPrinter.printImageBase64(Base64, imageWidth, imageHeight, reject, resolve);
+        });
+    },
 };
 export var BLEPrinter = {
     init: function () {
