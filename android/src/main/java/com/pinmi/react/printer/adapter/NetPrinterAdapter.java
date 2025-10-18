@@ -461,22 +461,4 @@ public class NetPrinterAdapter implements PrinterAdapter {
         return resized;
     }
 
-    @Override
-    public void printImageBase64(String base64Image, int imageWidth, int imageHeight, Callback errorCallback, Callback successCallback) {
-        if (this.mSocket == null) {
-            errorCallback.invoke("socket connection is not built, may be you forgot to connectPrinter");
-            return;
-        }
-        try {
-            Log.v(LOG_TAG, "start to print base64 image data");
-            final String rawData = base64Image;
-            final Socket socket = this.mSocket;
-            new Thread(new NetThreadWrite(socket, rawData, successCallback, errorCallback)).start();
-        } catch (Exception e) {
-            Log.e(LOG_TAG, "failed to print base64 image data");
-            e.printStackTrace();
-            errorCallback.invoke(e.getMessage());
-        }
-    }
-
 }

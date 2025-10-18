@@ -79,13 +79,6 @@ public class RNBLEPrinterModule extends ReactContextBaseJavaModule implements RN
     }
 
     @ReactMethod
-    @Override
-    public void printImageBase64(String base64Image, int imageWidth, int imageHeight, Callback errorCallback, Callback successCallback) {
-        adapter.printImageBase64(base64Image, imageWidth, imageHeight, errorCallback, successCallback);
-    }
-
-
-    @ReactMethod
     public void connectPrinter(String innerAddress, Callback successCallback, Callback errorCallback) {
         adapter.selectDevice(BLEPrinterDeviceId.valueOf(innerAddress), successCallback, errorCallback);
     }

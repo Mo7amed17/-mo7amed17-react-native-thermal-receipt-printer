@@ -104,16 +104,6 @@ public class RNUSBPrinterModule extends ReactContextBaseJavaModule implements RN
     }
 
     @ReactMethod
-    @Override
-    public void printImageBase64(String base64Image, int imageWidth, int imageHeight, Callback errorCallback, Callback successCallback) {
-        try {
-            adapter.printImageBase64(base64Image, imageWidth, imageHeight, errorCallback, successCallback);
-        } catch (Exception e) {
-            errorCallback.invoke("Error printing base64 image: " + e.getMessage());
-        }
-    }
-
-    @ReactMethod
     public void connectPrinter(Integer vendorId, Integer productId, Callback successCallback, Callback errorCallback) {
         try {
             adapter.selectDevice(USBPrinterDeviceId.valueOf(vendorId, productId), successCallback, errorCallback);

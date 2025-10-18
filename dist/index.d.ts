@@ -42,8 +42,6 @@ export declare const USBPrinter: {
     printText: (text: string, opts?: PrinterOptions) => Promise<unknown>;
     printBill: (text: string, opts?: PrinterOptions) => Promise<unknown>;
     print: (buffer: Buffer) => Promise<void>;
-    printImage: (imgUrl: string, opts?: PrinterImageOptions) => Promise<unknown>;
-    printImageBase64: (Base64: string, opts?: PrinterImageOptions) => Promise<unknown>;
 };
 export declare const BLEPrinter: {
     init: () => Promise<void>;
@@ -53,8 +51,6 @@ export declare const BLEPrinter: {
     printText: (text: string, opts?: PrinterOptions) => Promise<unknown>;
     printBill: (text: string, opts?: PrinterOptions) => Promise<unknown>;
     print: (buffer: Buffer) => Promise<void>;
-    printImage: (imgUrl: string, opts?: PrinterImageOptions) => Promise<unknown>;
-    printImageBase64: (Base64: string, opts?: PrinterImageOptions) => Promise<unknown>;
 };
 export declare const NetPrinter: {
     init: () => Promise<void>;
@@ -64,8 +60,6 @@ export declare const NetPrinter: {
     printText: (text: string, opts?: {}) => Promise<unknown>;
     printBill: (text: string, opts?: {}) => Promise<unknown>;
     print: (buffer: Buffer) => Promise<void>;
-    printImage: (imgUrl: string, opts?: PrinterImageOptions) => Promise<unknown>;
-    printImageBase64: (Base64: string, opts?: PrinterImageOptions) => Promise<unknown>;
 };
 export declare const NetPrinterEventEmitter: NativeEventEmitter;
 export declare enum RN_THERMAL_RECEIPT_PRINTER_EVENTS {

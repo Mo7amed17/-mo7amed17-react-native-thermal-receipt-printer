@@ -76,18 +76,6 @@ public class RNNetPrinterModule extends ReactContextBaseJavaModule implements RN
         adapter.printQrCode(qrCode, errorCallback);
     }
 
-    @ReactMethod
-    @Override
-    public void printImageBase64(String base64Image, int imageWidth, int imageHeight, Callback errorCallback, Callback successCallback) {
-        try {
-            Log.v("printImageBase64", "Starting to print base64 image");
-            adapter.printImageBase64(base64Image, imageWidth, imageHeight, errorCallback, successCallback);
-        } catch (Exception e) {
-            Log.e("RNNetPrinter", "Error printing base64 image: " + e.getMessage());
-            errorCallback.invoke("Error printing base64 image: " + e.getMessage());
-        }
-    }
-
     @Override
     public String getName() {
         return "RNNetPrinter";
